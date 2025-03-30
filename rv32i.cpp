@@ -238,46 +238,58 @@ SC_MODULE(RV32I) {
         imm_b >>= 1;
 
         if (funct3 == 0x0) {            // BEQ
-            cout << "BEQ x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b << endl;
+            cout << "BEQ x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() == registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 1);
                 wait();
-                cout << hex << "Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+            } else {
+                cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x01) {    // BNE
-            cout << "BNE x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b << endl;
+            cout << "BNE x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if (registers[rs1].read() != registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 1);
                 wait();
-                cout << hex << "Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+            } else {
+                cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x04) {    // BLT
-            cout << "BLT x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b << endl;
+            cout << "BLT x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if ((int32_t) registers[rs1].read() < (int32_t) registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 1);
                 wait();
-                cout << hex << "Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+            } else {
+                cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x05) {    // BGE
-            cout << "BGE x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b << endl;
+            cout << "BGE x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if ((int32_t) registers[rs1].read() >= (int32_t) registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 1);
                 wait();
-                cout << hex << "Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+            } else {
+                cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x06) {    // BLTU
-            cout << "BLTU x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b << endl;
+            cout << "BLTU x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() < registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 1);
                 wait();
-                cout << hex << "Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+            } else {
+                cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x07) {    // BGEU
-            cout << "BGEU x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b << endl;
+            cout << "BGEU x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() >= registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 1);
                 wait();
-                cout << hex << "Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+            } else {
+                cout << hex << " | Branch NOT Taken" << endl;
             }
         }
     }
@@ -288,7 +300,7 @@ SC_MODULE(RV32I) {
     }
 
     void execute(sc_uint<32> instr) {
-        cout << hex << "PC: 0x" << pc.read() << " | Instruction: " << instr << " | ";
+        cout << hex << "PC: 0x" << setw(8) << setfill('0') << (uint32_t) pc.read() << " | Instruction: " << setw(8) << setfill('0') << (uint32_t) instr << " | ";
         opcode = instr & 0x7F;
         switch(opcode) {
             case 0x33: // R-type
@@ -378,9 +390,9 @@ SC_MODULE(RV32I) {
                 set_data_mem(test_data, 20);
                 continue;
             }
-            read_registers();
+            // read_registers();
             execute(instruction_memory[pc.read()].read());
-            wait();
+            wait(); // wait for changes to take place
             pc.write(pc.read() + 1);    // word size
         }
     }
