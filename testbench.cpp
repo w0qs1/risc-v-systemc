@@ -3,7 +3,7 @@
 //#include <tracing.h>
 
 SC_MODULE(Testbench) {
-    sc_signal<bool> clk, nreset, halt;
+    sc_signal<bool> clk, nreset, halt, interrupt;
     RV32I *rv32i;
 
     void clk_gen() {
@@ -16,6 +16,7 @@ SC_MODULE(Testbench) {
     }
 
     void stim_proc() {
+        interrupt.write(false);
         nreset.write(false);
         wait(2, SC_NS);
         nreset.write(true);
@@ -35,6 +36,7 @@ SC_MODULE(Testbench) {
         rv32i = new RV32I("rv32i");
         rv32i->clk(clk);
         rv32i->nreset(nreset);
+        rv32i->interrupt(interrupt);
         rv32i->halt(halt);
 
         // sc_trace_file *tf;

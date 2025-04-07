@@ -8,12 +8,18 @@ using namespace std;
 SC_MODULE(RV32I) {
     sc_in<bool> clk;
     sc_in<bool> nreset;
+    sc_in<bool> interrupt;
     sc_out<bool> halt;
 
+    sc_signal<bool> interrupt_flag;
+    sc_signal<sc_uint<32>> return_pc;
     sc_signal<sc_uint<32>> pc;
     sc_signal<sc_uint<32>> registers[32];
     sc_signal<sc_uint<32>> instruction_memory[INSTR_MEM_SIZE];
     sc_signal<sc_uint<8>> data_memory[DATA_MEM_SIZE];
+
+    // Each peripheral has 4 register (each 1 word) and there are 3 peripherals (UART, GPIO and SysTick)
+    sc_signal<sc_uint<8>> peripheral_memory[48];
 
     sc_uint<7> opcode;
     sc_uint<5> rd;
@@ -383,14 +389,27 @@ SC_MODULE(RV32I) {
             wait();
             if(nreset.read() == 0) {
                 cout << "Processor Reset!" << endl;
+                // Reset handler at location 0x00
                 pc.write(0);
                 halt.write(false);
                 reset_registers();
                 set_instruction_mem(test_program, 9);
                 set_data_mem(test_data, 20);
                 continue;
+            } else if (interrupt.read() && !interrupt_flag.read()) {
+                // interrupt flag is read to prevent multiple triggers
+                cout << "Interrupt Detected!" << endl;
+                interrupt_flag.write(true);
+
+                // store pc to ra (x1) for returning after completing isr
+                registers[1].write(pc.read());
+                
+                // Interrupt handler at location 0x04
+                pc.write(4);
+                continue;
             }
             // read_registers();
+            interrupt_flag.write(false);
             execute(instruction_memory[pc.read()].read());
             wait(); // wait for changes to take place
             pc.write(pc.read() + 1);    // word size
