@@ -21,6 +21,12 @@ SC_MODULE(RV32I) {
     sc_signal<sc_uint<32>> instruction_memory[INSTR_MEM_SIZE];
     sc_signal<sc_uint<8>> data_memory[DATA_MEM_SIZE];
 
+    // GPIO Peripheral registers:
+    sc_signal<sc_uint<32>> csr;
+    sc_signal<sc_uint<32>> ddr;
+    sc_signal<sc_uint<32>> odr;
+    sc_signal<sc_uint<32>> idr;
+
     sc_uint<7> opcode;
     sc_uint<5> rd;
     sc_uint<3> funct3;
@@ -419,7 +425,10 @@ SC_MODULE(RV32I) {
     SC_CTOR(RV32I) {
         SC_THREAD(fetch_decode);
         gpio = new GPIO("gpio");
-        gpio->
+        gpio->csr(csr);
+        gpio->ddr(ddr);
+        gpio->odr(odr);
+        gpio->idr(idr);
         sensitive << clk.pos() << nreset;
     }
 };
