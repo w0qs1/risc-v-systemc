@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <vector>
 #include "config.h"
+#include "gpio.h"
 
 using namespace std;
 
@@ -10,6 +11,8 @@ SC_MODULE(RV32I) {
     sc_in<bool> nreset;
     sc_out<bool> halt;
 
+    GPIO* gpio;
+
     sc_signal<bool> interrupt;
     sc_signal<bool> interrupt_flag;
     sc_signal<sc_uint<32>> return_pc;
@@ -17,9 +20,6 @@ SC_MODULE(RV32I) {
     sc_signal<sc_uint<32>> registers[32];
     sc_signal<sc_uint<32>> instruction_memory[INSTR_MEM_SIZE];
     sc_signal<sc_uint<8>> data_memory[DATA_MEM_SIZE];
-
-    // Each peripheral has 4 register (each 1 word) and there are 3 peripherals (UART, GPIO and SysTick)
-    sc_signal<sc_uint<8>> peripheral_memory[48];
 
     sc_uint<7> opcode;
     sc_uint<5> rd;
@@ -418,6 +418,8 @@ SC_MODULE(RV32I) {
 
     SC_CTOR(RV32I) {
         SC_THREAD(fetch_decode);
+        gpio = new GPIO("gpio");
+        gpio->
         sensitive << clk.pos() << nreset;
     }
 };
