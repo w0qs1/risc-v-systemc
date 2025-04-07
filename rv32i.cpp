@@ -8,9 +8,9 @@ using namespace std;
 SC_MODULE(RV32I) {
     sc_in<bool> clk;
     sc_in<bool> nreset;
-    sc_in<bool> interrupt;
     sc_out<bool> halt;
 
+    sc_signal<bool> interrupt;
     sc_signal<bool> interrupt_flag;
     sc_signal<sc_uint<32>> return_pc;
     sc_signal<sc_uint<32>> pc;
@@ -404,8 +404,8 @@ SC_MODULE(RV32I) {
                 // store pc to ra (x1) for returning after completing isr
                 registers[1].write(pc.read());
                 
-                // Interrupt handler at location 0x04
-                pc.write(4);
+                // Interrupt handler at location 0x01
+                pc.write(1);
                 continue;
             }
             // read_registers();
