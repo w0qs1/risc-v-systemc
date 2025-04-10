@@ -2,7 +2,7 @@
 #include <iomanip>
 #include <vector>
 #include "config.h"
-// #include "gpio.h"
+#include "gpio.cpp"
 
 using namespace std;
 
@@ -12,7 +12,7 @@ SC_MODULE(RV32I) {
     sc_in<bool> interrupt;
     sc_out<bool> halt;
 
-    // GPIO* gpio;
+    GPIO* gpio;
 
     // sc_signal<bool> interrupt;
     sc_signal<bool> interrupt_flag;
@@ -23,10 +23,10 @@ SC_MODULE(RV32I) {
     sc_signal<sc_uint<8>> data_memory[DATA_MEM_SIZE];
 
     // GPIO Peripheral registers:
-    // sc_signal<sc_uint<32>> csr;
-    // sc_signal<sc_uint<32>> ddr;
-    // sc_signal<sc_uint<32>> odr;
-    // sc_signal<sc_uint<32>> idr;
+    sc_signal<sc_uint<32>> csr;
+    sc_signal<sc_uint<32>> ddr;
+    sc_signal<sc_uint<32>> odr;
+    sc_signal<sc_uint<32>> idr;
 
     sc_uint<7> opcode;
     sc_uint<5> rd;
@@ -322,11 +322,21 @@ SC_MODULE(RV32I) {
 
             case 0x03:  // I-type
             case 0x13:
+                // Store gpio signals (registers) onto memory before any memory read
+                data_memory[PERI_MEM_OFF + 0].write(csr.read());
+                data_memory[PERI_MEM_OFF + 1].write(ddr.read());
+                data_memory[PERI_MEM_OFF + 2].write(odr.read());
+                data_memory[PERI_MEM_OFF + 3].write(idr.read());
                 handle_i_type(instr);
                 break;
 
             case 0x23:  // S-type
                 handle_s_type(instr);
+                // Store memory into gpio signals (registers) after any memory write
+                csr.write(data_memory[PERI_MEM_OFF + 0].read());
+                ddr.write(data_memory[PERI_MEM_OFF + 1].read());
+                odr.write(data_memory[PERI_MEM_OFF + 2].read());
+                idr.write(data_memory[PERI_MEM_OFF + 3].read());
 				break;
 
             case 0x37:  // U-type (LUI)
@@ -390,7 +400,7 @@ SC_MODULE(RV32I) {
     }
 
     void fetch_decode(void) {
-        // uint32_t test_program[10] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
+        // uint32_t test_program[9] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
         uint32_t test_program[14] = {0x0080006f, 0x0020006f, 0x00150513, 0x00008067, 0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
         uint8_t test_data[20] = {0x22, 0x00, 0x00, 0x00, 0x39, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00};
         while(true) {
@@ -428,11 +438,11 @@ SC_MODULE(RV32I) {
 
     SC_CTOR(RV32I) {
         SC_THREAD(fetch_decode);
-        // gpio = new GPIO("gpio");
-        // gpio->csr(csr);
-        // gpio->ddr(ddr);
-        // gpio->odr(odr);
-        // gpio->idr(idr);
+        gpio = new GPIO("gpio");
+        gpio->csr(csr);
+        gpio->ddr(ddr);
+        gpio->odr(odr);
+        gpio->idr(idr);
         sensitive << clk.pos() << nreset;
     }
 };
