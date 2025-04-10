@@ -20,6 +20,10 @@ SC_MODULE(Testbench) {
         nreset.write(false);
         wait(2, SC_NS);
         nreset.write(true);
+        wait(10, SC_NS);
+        interrupt.write(true);
+        wait(2, SC_NS);
+        interrupt.write(false);
     }
 
     void stop_on_halt() {

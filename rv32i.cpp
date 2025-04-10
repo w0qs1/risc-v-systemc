@@ -2,18 +2,19 @@
 #include <iomanip>
 #include <vector>
 #include "config.h"
-#include "gpio.h"
+// #include "gpio.h"
 
 using namespace std;
 
 SC_MODULE(RV32I) {
     sc_in<bool> clk;
     sc_in<bool> nreset;
+    sc_in<bool> interrupt;
     sc_out<bool> halt;
 
-    GPIO* gpio;
+    // GPIO* gpio;
 
-    sc_signal<bool> interrupt;
+    // sc_signal<bool> interrupt;
     sc_signal<bool> interrupt_flag;
     sc_signal<sc_uint<32>> return_pc;
     sc_signal<sc_uint<32>> pc;
@@ -22,10 +23,10 @@ SC_MODULE(RV32I) {
     sc_signal<sc_uint<8>> data_memory[DATA_MEM_SIZE];
 
     // GPIO Peripheral registers:
-    sc_signal<sc_uint<32>> csr;
-    sc_signal<sc_uint<32>> ddr;
-    sc_signal<sc_uint<32>> odr;
-    sc_signal<sc_uint<32>> idr;
+    // sc_signal<sc_uint<32>> csr;
+    // sc_signal<sc_uint<32>> ddr;
+    // sc_signal<sc_uint<32>> odr;
+    // sc_signal<sc_uint<32>> idr;
 
     sc_uint<7> opcode;
     sc_uint<5> rd;
@@ -234,7 +235,7 @@ SC_MODULE(RV32I) {
         cout << "JALR x" << dec << rd << hex << ", x" << dec << rs1 << hex << "(" << dec << imm_j << ")" << endl;
 
         registers[rd].write((sc_uint<32>)registers[rs1].read() + imm_j);
-        pc.write((sc_uint<32>) pc.read() + imm_j + registers[rs1].read() - 1);
+        pc.write((sc_uint<32>)registers[rs1].read() + imm_j - 1);
     }
 
     void handle_b_type(sc_uint<32> instr) {
@@ -389,7 +390,8 @@ SC_MODULE(RV32I) {
     }
 
     void fetch_decode(void) {
-        uint32_t test_program[10] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
+        // uint32_t test_program[10] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
+        uint32_t test_program[14] = {0x0080006f, 0x0020006f, 0x00150513, 0x00008067, 0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
         uint8_t test_data[20] = {0x22, 0x00, 0x00, 0x00, 0x39, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00};
         while(true) {
             wait();
@@ -399,16 +401,18 @@ SC_MODULE(RV32I) {
                 pc.write(0);
                 halt.write(false);
                 reset_registers();
-                set_instruction_mem(test_program, 9);
+                set_instruction_mem(test_program, 13);
                 set_data_mem(test_data, 20);
                 continue;
             } else if (interrupt.read() && !interrupt_flag.read()) {
                 // interrupt flag is read to prevent multiple triggers
                 cout << "Interrupt Detected!" << endl;
+                // cout << hex << "PC: 0x" << setw(8) << setfill('0') << (uint32_t) pc.read() << " | CLK: " << sc_time_stamp() << endl;
                 interrupt_flag.write(true);
 
                 // store pc to ra (x1) for returning after completing isr
                 registers[1].write(pc.read());
+                // read_registers();
                 
                 // Interrupt handler at location 0x01
                 pc.write(1);
@@ -424,11 +428,11 @@ SC_MODULE(RV32I) {
 
     SC_CTOR(RV32I) {
         SC_THREAD(fetch_decode);
-        gpio = new GPIO("gpio");
-        gpio->csr(csr);
-        gpio->ddr(ddr);
-        gpio->odr(odr);
-        gpio->idr(idr);
+        // gpio = new GPIO("gpio");
+        // gpio->csr(csr);
+        // gpio->ddr(ddr);
+        // gpio->odr(odr);
+        // gpio->idr(idr);
         sensitive << clk.pos() << nreset;
     }
 };
