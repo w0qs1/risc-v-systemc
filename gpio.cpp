@@ -24,8 +24,6 @@ SC_MODULE(GPIO) {
                 ddr.write(data_in);
             } else if (r_sel.read() == 2) {
                 odr.write(data_in);                
-            } else if (r_sel.read() == 3) {
-                idr.write(data_in);                
             }
         }
     }
