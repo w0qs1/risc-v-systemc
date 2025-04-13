@@ -23,6 +23,9 @@ SC_MODULE(RV32I) {
     sc_signal<sc_uint<8>> data_memory[DATA_MEM_SIZE];
 
     // GPIO Peripheral registers:
+    sc_signal<sc_uint<2>> r_sel;
+    sc_signal<bool> s_write;
+    sc_signal<sc_uint<32>> data_in;
     sc_signal<sc_uint<32>> csr;
     sc_signal<sc_uint<32>> ddr;
     sc_signal<sc_uint<32>> odr;
@@ -139,7 +142,7 @@ SC_MODULE(RV32I) {
             registers[rd].write((sc_uint<32>)(int32_t) registers[rs1].read() >> shamt);
         } else if (opcode == 0x03 && funct3 == 0x0) {	// LB
             cout << "LB x" << dec << rd << hex << ", " << imm_i << "(x" << dec << dec << rs1 << hex << hex << ")" << endl;
-            registers[rd].write((sc_uint<32>) sign_extend_8(data_memory[registers[rs1].read() + sign_extend_12(imm_i)].read())); 
+            registers[rd].write((sc_uint<32>) sign_extend_8(data_memory[registers[rs1].read() + sign_extend_12(imm_i)].read()));
         } else if (opcode == 0x03 && funct3 == 0x1) {	// LH
             cout << "LH x" << dec << rd << hex << ", " << imm_i << "(x" << dec << dec << rs1 << hex << hex << ")" << endl;
             sc_uint<32> address = registers[rs1].read() + imm_i;
@@ -221,21 +224,23 @@ SC_MODULE(RV32I) {
         sc_uint<10> imm_j_4 = (instr >> 21) & 0x3FF;
 
         imm_j = sign_extend_20((imm_j_1 << 19) | (imm_j_2 << 11) | (imm_j_3 << 10) | imm_j_4);
-        cout << "JAL x" << dec << rd << hex << ", " << dec << imm_j << endl;
+        imm_j <<= 1;
+        cout << "JAL x" << dec << rd << hex << ", 0x" << setw(8) << setfill('0') << imm_j << endl;
 
-        registers[rd].write((sc_uint<32>) pc.read() + 1);
-        // -1 because pc gets incremented
-        pc.write(pc.read() + imm_j - 1);
+        registers[rd].write((sc_uint<32>) pc.read() + 4);
+        // -4 because pc gets incremented
+        pc.write(pc.read() + imm_j - 4);
     }
 
     void handle_j_type_jalr(sc_uint<32> instr) {
         rd = (instr >> 7) & 0x1F;
         rs1 = (instr >> 15) & 0x1F;
         imm_j = sign_extend_12((instr >> 20) & 0xFFF);
-        cout << "JALR x" << dec << rd << hex << ", x" << dec << rs1 << hex << "(" << dec << imm_j << ")" << endl;
+        imm_j <<= 1;
+        cout << "JALR x" << dec << rd << hex << ", x" << dec << rs1 << hex << "(" << imm_j << ")" << endl;
 
         registers[rd].write((sc_uint<32>)registers[rs1].read() + imm_j);
-        pc.write((sc_uint<32>)registers[rs1].read() + imm_j - 1);
+        pc.write((sc_uint<32>)registers[rs1].read() + imm_j - 4);
     }
 
     void handle_b_type(sc_uint<32> instr) {
@@ -248,59 +253,59 @@ SC_MODULE(RV32I) {
         sc_uint<4> imm_b_4 = (instr >> 8) & 0xF;
 
         imm_b = sign_extend_12((imm_b_1 << 11) | (imm_b_2 << 10) | (imm_b_3 << 4) | imm_b_4);
-        imm_b >>= 1;
+        imm_b <<= 1;
 
         if (funct3 == 0x0) {            // BEQ
             cout << "BEQ x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() == registers[rs2].read()) {
-                pc.write((sc_uint<32>) pc.read() + imm_b - 1);
+                pc.write((sc_uint<32>) pc.read() + imm_b - 4);
                 wait();
-                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x01) {    // BNE
             cout << "BNE x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if (registers[rs1].read() != registers[rs2].read()) {
-                pc.write((sc_uint<32>) pc.read() + imm_b - 1);
+                pc.write((sc_uint<32>) pc.read() + imm_b - 4);
                 wait();
-                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x04) {    // BLT
             cout << "BLT x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if ((int32_t) registers[rs1].read() < (int32_t) registers[rs2].read()) {
-                pc.write((sc_uint<32>) pc.read() + imm_b - 1);
+                pc.write((sc_uint<32>) pc.read() + imm_b - 4);
                 wait();
-                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x05) {    // BGE
             cout << "BGE x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if ((int32_t) registers[rs1].read() >= (int32_t) registers[rs2].read()) {
-                pc.write((sc_uint<32>) pc.read() + imm_b - 1);
+                pc.write((sc_uint<32>) pc.read() + imm_b - 4);
                 wait();
-                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x06) {    // BLTU
             cout << "BLTU x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() < registers[rs2].read()) {
-                pc.write((sc_uint<32>) pc.read() + imm_b - 1);
+                pc.write((sc_uint<32>) pc.read() + imm_b - 4);
                 wait();
-                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
         } else if (funct3 == 0x07) {    // BGEU
             cout << "BGEU x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() >= registers[rs2].read()) {
-                pc.write((sc_uint<32>) pc.read() + imm_b - 1);
+                pc.write((sc_uint<32>) pc.read() + imm_b - 4);
                 wait();
-                cout << hex << " | Branch Taken, New PC: " << pc.read() + 1 << endl;
+                cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
@@ -323,20 +328,20 @@ SC_MODULE(RV32I) {
             case 0x03:  // I-type
             case 0x13:
                 // Store gpio signals (registers) onto memory before any memory read
-                data_memory[PERI_MEM_OFF + 0].write(csr.read());
-                data_memory[PERI_MEM_OFF + 1].write(ddr.read());
-                data_memory[PERI_MEM_OFF + 2].write(odr.read());
-                data_memory[PERI_MEM_OFF + 3].write(idr.read());
+                // data_memory[PERI_MEM_OFF + 0].write(csr.read());
+                // data_memory[PERI_MEM_OFF + 1].write(ddr.read());
+                // data_memory[PERI_MEM_OFF + 2].write(odr.read());
+                // data_memory[PERI_MEM_OFF + 3].write(idr.read());
                 handle_i_type(instr);
                 break;
 
             case 0x23:  // S-type
                 handle_s_type(instr);
                 // Store memory into gpio signals (registers) after any memory write
-                csr.write(data_memory[PERI_MEM_OFF + 0].read());
-                ddr.write(data_memory[PERI_MEM_OFF + 1].read());
-                odr.write(data_memory[PERI_MEM_OFF + 2].read());
-                idr.write(data_memory[PERI_MEM_OFF + 3].read());
+                // csr.write(data_memory[PERI_MEM_OFF + 0].read());
+                // ddr.write(data_memory[PERI_MEM_OFF + 1].read());
+                // odr.write(data_memory[PERI_MEM_OFF + 2].read());
+                // idr.write(data_memory[PERI_MEM_OFF + 3].read());
 				break;
 
             case 0x37:  // U-type (LUI)
@@ -401,7 +406,7 @@ SC_MODULE(RV32I) {
 
     void fetch_decode(void) {
         // uint32_t test_program[9] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
-        uint32_t test_program[14] = {0x0080006f, 0x0020006f, 0x00150513, 0x00008067, 0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
+        uint32_t test_program[13] = {0x0100006f, 0x0040006f, 0x00150513, 0x00008067, 0x00500293, 0x20000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
         uint8_t test_data[20] = {0x22, 0x00, 0x00, 0x00, 0x39, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00};
         while(true) {
             wait();
@@ -425,24 +430,34 @@ SC_MODULE(RV32I) {
                 // read_registers();
                 
                 // Interrupt handler at location 0x01
-                pc.write(1);
+                pc.write(4);
                 continue;
             }
             // read_registers();
             interrupt_flag.write(false);
-            execute(instruction_memory[pc.read()].read());
+            execute(instruction_memory[pc.read() / 4].read());
             wait(); // wait for changes to take place
-            pc.write(pc.read() + 1);    // word size
+            pc.write(pc.read() + 4);    // word size
         }
     }
 
     SC_CTOR(RV32I) {
         SC_THREAD(fetch_decode);
         gpio = new GPIO("gpio");
+        gpio->clk(clk);
+        gpio->nreset(nreset);
+        gpio->r_sel(r_sel);
+        gpio->s_write(s_write);
+        gpio->data_in(data_in);
         gpio->csr(csr);
         gpio->ddr(ddr);
         gpio->odr(odr);
         gpio->idr(idr);
         sensitive << clk.pos() << nreset;
+
+        // csr.write(0);
+        // ddr.write(0);
+        // odr.write(0);
+        // idr.write(0);
     }
 };
