@@ -29,7 +29,7 @@ SC_MODULE(RV32I) {
     sc_signal<sc_uint<32>> data_in;
     sc_signal<sc_uint<32>> data_out;
 
-    sc_inout<sc_uint<32>> gpio_inout;
+    sc_inout_rv<32> gpio_inout;
 
     sc_uint<7> opcode;
     sc_uint<5> rd;

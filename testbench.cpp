@@ -4,7 +4,7 @@
 
 SC_MODULE(Testbench) {
     sc_signal<bool> clk, nreset, halt;
-    sc_signal<sc_uint<32>> gpio_inout;
+    sc_signal_rv<32> gpio_inout;
     sc_signal<sc_uint<32>> interrupt;
     RV32I *rv32i;
 

@@ -94,10 +94,10 @@ SC_MODULE(GPIO) {
     sc_in<sc_uint<32>> data_in;
     sc_out<sc_uint<32>> data_out;
 
-    sc_inout<sc_uint<32>> gpio_inout;
+    sc_inout_rv<32> gpio_inout;
 
     sc_signal<sc_uint<32>> ddr_reg, odr_reg, csr_reg, idr_reg;
-    sc_uint<32> out_val;
+    sc_lv<32> out_val;
 
     void gpio_handle(void) {
         if (!nreset.read()) {
@@ -151,20 +151,31 @@ SC_MODULE(GPIO) {
 
             for (int i = 0; i < 32; i++) {
                 if (ddr_reg.read()[i]) {
-                    out_val[i] = odr_reg.read()[i]; // output mode
+                    out_val[i] = odr_reg.read()[i].to_bool(); // output mode
                 } else {
                     idr_val[i] = gpio_val[i];       // input mode
                 }
             }
 
-            gpio_inout.write(out_val);
+            gpio_inout.write(sc_lv<32>(out_val));
             idr_reg.write(idr_val);
         }
     }
 
-    void gpio_monitor(void) {
-        cout << sc_time_stamp() << " GPIO Output Value: 0x" << hex << setw(8) << setfill('0') << out_val.to_uint() << endl;
-    }    
+    // void gpio_monitor(void) {
+    //     cout << sc_time_stamp() << " GPIO Output Value: 0x" << hex << setw(8) << setfill('0') << out_val.to_uint() << endl;
+    // } 
+    
+    void gpio_monitor() {
+        sc_lv<32> val_lv = gpio_inout.read();
+        if (!val_lv.is_01()) {
+            std::cout << sc_time_stamp() << " GPIO Output contains non-binary value: " << val_lv << std::endl;
+        } else {
+            uint32_t val = val_lv.to_uint();
+            std::cout << sc_time_stamp() << " GPIO Output Value: 0x" << std::hex << val << std::endl;
+        }
+    }
+    
 
     SC_CTOR(GPIO) {
         SC_METHOD(gpio_handle);
