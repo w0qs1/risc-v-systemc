@@ -28,10 +28,6 @@ SC_MODULE(RV32I) {
     sc_signal<bool> s_read;
     sc_signal<sc_uint<32>> data_in;
     sc_signal<sc_uint<32>> data_out;
-    sc_signal<sc_uint<32>> csr;
-    sc_signal<sc_uint<32>> ddr;
-    sc_signal<sc_uint<32>> odr;
-    sc_signal<sc_uint<32>> idr;
 
     sc_inout<sc_uint<32>> gpio_inout;
 
@@ -106,25 +102,34 @@ SC_MODULE(RV32I) {
         funct7  = (instr >> 25) & 0x7F;
 
         if(funct7 == 0x00 && funct3 == 0x0) {           // ADD
-            cout << "ADD x" << dec << rd << hex << ", " << dec << rs1 << hex << ", " << dec << rs2 << hex << endl;
+            cout << "ADD x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", " << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) registers[rs1].read() + registers[rs2].read());
         } else if (funct7 == 0x20 && funct3 == 0x0) {   // SUB
+            cout << "SUB x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) registers[rs1].read() - registers[rs2].read());
         } else if (funct7 == 0x00 && funct3 == 0x7) {   // AND
+            cout << "AND x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) registers[rs1].read() & registers[rs2].read());
         } else if (funct7 == 0x00 && funct3 == 0x6) {   // OR
+            cout << "OR x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) registers[rs1].read() | registers[rs2].read());
         } else if (funct7 == 0x00 && funct3 == 0x1) {   //SLL
+            cout << "SLL x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) registers[rs1].read() << registers[rs2].read());
         } else if (funct7 == 0x00 && funct3 == 0x2) {   // SLT
+            cout << "SLT x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) ((int32_t) registers[rs1].read() < (int32_t) registers[rs2].read()) ? 0x00000001 : 0x00000000);
         } else if (funct7 == 0x00 && funct3 == 0x3) {   // SLTU
+            cout << "SLTU x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) ((uint32_t) registers[rs1].read() < (uint32_t) registers[rs2].read()) ? 0x00000001 : 0x00000000);
         } else if (funct7 == 0x00 && funct3 == 0x4) {   // XOR
+            cout << "XOR x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) registers[rs1].read() ^ registers[rs2].read());
         } else if (funct7 == 0x00 && funct3 == 0x5) {	// SRL
+            cout << "SRL x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) (uint32_t) registers[rs1].read() >> ((uint32_t) registers[rs2].read() & 0x1F));
         } else if (funct7 == 0x20 && funct3 == 0x5) {	// SRA
+            cout << "SRA x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << endl;
             registers[rd].write((sc_uint<32>) (int32_t) registers[rs1].read() >> ((int32_t) registers[rs2].read() & 0x1F));
         }
     }
@@ -232,8 +237,8 @@ SC_MODULE(RV32I) {
             } else if (address >= GPIO_BASE && address < GPIO_END) {
                 r_sel = (address - GPIO_BASE) / 4;
                 s_write = true;
-                wait();
                 data_in.write(registers[rs2].read());
+                wait();
                 s_write = false;
             }
         } else if (funct3 == 0x1) {	// SH
@@ -244,8 +249,8 @@ SC_MODULE(RV32I) {
             } else if (address >= GPIO_BASE && address < GPIO_END) {
                 r_sel = (address - GPIO_BASE) / 4;
                 s_write = true;
-                wait();
                 data_in.write(registers[rs2].read());
+                wait();
                 s_write = false;
             }
         } else if (funct3 == 0x2) {	// SW
@@ -258,8 +263,8 @@ SC_MODULE(RV32I) {
             } else if (address >= GPIO_BASE && address < GPIO_END) {
                 r_sel = (address - GPIO_BASE) / 4;
                 s_write = true;
-                wait();
                 data_in.write(registers[rs2].read());
+                wait();
                 s_write = false;
             }
         }
@@ -469,7 +474,8 @@ SC_MODULE(RV32I) {
 
     void fetch_decode(void) {
         // uint32_t test_program[9] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
-        uint32_t test_program[13] = {0x0100006f, 0x0040006f, 0x00150513, 0x00200073, 0x00500293, 0x20000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
+        // uint32_t test_program[13] = {0x0100006f, 0x0040006f, 0x00150513, 0x00200073, 0x00400293, 0x20000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
+        uint32_t test_program[14] = {0x0100006f, 0x0040006f, 0x00150513, 0x00200073, 0x00a00293, 0x20000313, 0xfff00393, 0x00732223, 0x00832e03, 0x007e4e33, 0x01c32423, 0xfff28293, 0xfe0298e3, 0x00000073};
         uint8_t test_data[20] = {0x22, 0x00, 0x00, 0x00, 0x39, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00};
         while(true) {
             wait();
@@ -480,7 +486,7 @@ SC_MODULE(RV32I) {
                 halt.write(false);
                 mem_accessed.write(false);
                 reset_registers();
-                set_instruction_mem(test_program, 13);
+                set_instruction_mem(test_program, 14);
                 set_data_mem(test_data, 20);
                 continue;
             } else if (interrupt.read() && !interrupt_flag.read()) {
@@ -523,10 +529,6 @@ SC_MODULE(RV32I) {
         gpio->s_read(s_read);
         gpio->data_out(data_out);
         gpio->data_in(data_in);
-        gpio->csr(csr);
-        gpio->ddr(ddr);
-        gpio->odr(odr);
-        gpio->idr(idr);
         gpio->gpio_inout(gpio_inout);
         sensitive << clk.pos() << nreset;
     }
