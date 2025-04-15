@@ -3,7 +3,9 @@
 //#include <tracing.h>
 
 SC_MODULE(Testbench) {
-    sc_signal<bool> clk, nreset, halt, interrupt;
+    sc_signal<bool> clk, nreset, halt;
+    sc_signal<sc_uint<32>> gpio_inout;
+    sc_signal<sc_uint<32>> interrupt;
     RV32I *rv32i;
 
     void clk_gen() {
@@ -16,14 +18,14 @@ SC_MODULE(Testbench) {
     }
 
     void stim_proc() {
-        interrupt.write(false);
+        interrupt.write(0x000000000);
         nreset.write(false);
         wait(2, SC_NS);
         nreset.write(true);
         wait(10, SC_NS);
-        interrupt.write(true);
-        wait(2, SC_NS);
-        interrupt.write(false);
+        // interrupt.write(0x000000001);
+        // wait(2, SC_NS);
+        // interrupt.write(0x000000000);
     }
 
     void stop_on_halt() {
@@ -42,6 +44,7 @@ SC_MODULE(Testbench) {
         rv32i->nreset(nreset);
         rv32i->interrupt(interrupt);
         rv32i->halt(halt);
+        rv32i->gpio_inout(gpio_inout);
 
         // sc_trace_file *tf;
         // tf = sc_create_vcd_trace_file("waveform");

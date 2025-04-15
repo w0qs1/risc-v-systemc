@@ -9,13 +9,12 @@ using namespace std;
 SC_MODULE(RV32I) {
     sc_in<bool> clk;
     sc_in<bool> nreset;
-    sc_in<bool> interrupt;
+    sc_in<sc_uint<32>> interrupt;
     sc_out<bool> halt;
 
     GPIO* gpio;
 
-    // sc_signal<bool> interrupt;
-    sc_signal<bool> interrupt_flag;
+    sc_signal<sc_uint<32>> interrupt_flag;
     sc_signal<sc_uint<32>> return_pc;
     sc_signal<sc_uint<32>> pc;
     sc_signal<sc_uint<32>> registers[32];
@@ -26,11 +25,13 @@ SC_MODULE(RV32I) {
     // GPIO Peripheral registers:
     sc_signal<sc_uint<2>> r_sel;
     sc_signal<bool> s_write;
-    sc_signal<sc_uint<32>> data_in;
+    sc_signal<sc_uint<32>> data_inout;
     sc_signal<sc_uint<32>> csr;
     sc_signal<sc_uint<32>> ddr;
     sc_signal<sc_uint<32>> odr;
     sc_signal<sc_uint<32>> idr;
+
+    sc_inout<sc_uint<32>> gpio_inout;
 
     sc_uint<7> opcode;
     sc_uint<5> rd;
@@ -47,6 +48,10 @@ SC_MODULE(RV32I) {
     sc_int<20> imm_j;
     sc_uint<20> imm_u;
 
+    // For memory operations
+    sc_uint<32> address;
+    sc_signal<bool> mem_accessed;
+
 	sc_int<32> sign_extend_12(sc_int<12> num) {
         if (num[11]) { // If the most significant bit is 1 (negative)
             return (sc_int<32>) -((1 << 12) - num);
@@ -55,7 +60,7 @@ SC_MODULE(RV32I) {
         }
     }
 
-    sc_int<32> sign_extend_8(sc_uint<8> num) {
+    sc_int<32> sign_extend_8(sc_int<8> num) {
         if (num[7]) { // If the most significant bit is 1 (negative)
             return (sc_int<32>) -((1 << 8) - num);
         } else { // If the most significant bit is 0 (positive)
@@ -131,6 +136,7 @@ SC_MODULE(RV32I) {
         //imm_i   = (instr & (1 << 31)) ? 0xFFFFF000 : 0x00000000;
         imm_i   = sign_extend_12((instr >> 20) & 0xFFF);
         // cout << dec << rd << hex << ", " << funct3 << ", "  << dec << rs1 << hex << ", "  << shamt << ", "  << funct7 << ", "  << dec << imm_i << hex << endl;
+        sc_uint<32> read_data;
 
         if(funct3 == 0x0) {                             // ADDI
             cout << "ADDI x" << dec << rd << hex << ", x" << dec << rs1 << hex << ", " << dec << imm_i << hex << endl;
@@ -143,15 +149,38 @@ SC_MODULE(RV32I) {
             registers[rd].write((sc_uint<32>)(int32_t) registers[rs1].read() >> shamt);
         } else if (opcode == 0x03 && funct3 == 0x0) {	// LB
             cout << "LB x" << dec << rd << hex << ", " << imm_i << "(x" << dec << dec << rs1 << hex << hex << ")" << endl;
-            registers[rd].write((sc_uint<32>) sign_extend_8(data_memory[registers[rs1].read() + sign_extend_12(imm_i)].read()));
+            address = registers[rs1].read() + sign_extend_12(imm_i);
+            if (address < GPIO_BASE) {
+                read_data = data_memory[address].read();
+            } else if (address >= GPIO_BASE && address < GPIO_END) {
+                s_write = false;
+                r_sel.write(address - GPIO_BASE);
+                read_data = data_inout.read() & 0xFF;
+            }
+            registers[rd].write((sc_uint<32>) sign_extend_8((sc_int<8>) read_data));
         } else if (opcode == 0x03 && funct3 == 0x1) {	// LH
             cout << "LH x" << dec << rd << hex << ", " << imm_i << "(x" << dec << dec << rs1 << hex << hex << ")" << endl;
-            sc_uint<32> address = registers[rs1].read() + imm_i;
-            registers[rd].write((sc_uint<32>) sign_extend_16((data_memory[address + 1].read() << 8) | (data_memory[address].read())));
+            address = registers[rs1].read() + sign_extend_12(imm_i);
+            if (address < GPIO_BASE) {
+                read_data = ((data_memory[address + 1].read() << 8) | (data_memory[address].read())) & 0xFFFF;
+            } else if (address >= GPIO_BASE && address < GPIO_END) {
+                s_write = false;
+                r_sel.write(address - GPIO_BASE);
+                read_data = data_inout.read() && 0xFFFF;
+            }
+            registers[rd].write((sc_uint<32>) sign_extend_16((sc_int<16>) read_data));
         } else if (opcode == 0x03 && funct3 == 0x2) {	// LW
             cout << "LW x" << dec << rd << hex << ", " << dec << imm_i << hex << "(x" << dec << rs1 << hex << ")" << endl;
-            sc_uint<32> address = registers[rs1].read() + imm_i;
-            registers[rd].write((sc_uint<32>) (data_memory[address + 3].read() << 24) | (data_memory[address + 2].read() << 16) | (data_memory[address + 1].read() << 8) | data_memory[address].read());
+            address = registers[rs1].read() + sign_extend_12(imm_i);
+            if (address < GPIO_BASE) {
+                read_data = (sc_uint<32>) (data_memory[address + 3].read() << 24) | (data_memory[address + 2].read() << 16) | (data_memory[address + 1].read() << 8) | data_memory[address].read();
+            } else if (address >= GPIO_BASE && address < GPIO_END) {
+                s_write = false;
+                r_sel.write((address - GPIO_BASE) / 4);
+                read_data = data_inout.read();
+            }
+            cout << "Read Data: " << hex << read_data << endl;
+            registers[rd].write((sc_uint<32>) read_data);
         } else if (opcode == 0x03 && funct3 == 0x4) {	// LBU
             cout << "LBU x" << dec << rd << hex << ", " << dec << imm_i << hex << "(x" << dec << rs1 << hex << ")" << endl;
             sc_uint<32> address = registers[rs1].read() + imm_i;
@@ -321,7 +350,7 @@ SC_MODULE(RV32I) {
             // Set the pc to the return address (of user code) stored in uepc register
             cout << "URET" << endl;
             cout << "Interrupt Complete!" << endl;
-            pc.write(uepc.read());
+            pc.write(uepc.read() - 4);
         }
     }
 
@@ -417,22 +446,31 @@ SC_MODULE(RV32I) {
                 // Reset handler at location 0x00
                 pc.write(0);
                 halt.write(false);
+                mem_accessed.write(false);
                 reset_registers();
                 set_instruction_mem(test_program, 13);
                 set_data_mem(test_data, 20);
                 continue;
             } else if (interrupt.read() && !interrupt_flag.read()) {
                 // interrupt flag is read to prevent multiple triggers
-                cout << "Interrupt Detected!" << endl;
-                // cout << hex << "PC: 0x" << setw(8) << setfill('0') << (uint32_t) pc.read() << " | CLK: " << sc_time_stamp() << endl;
-                interrupt_flag.write(true);
+                sc_uint<8> interrupt_num = 0;
+                for(uint8_t i = 0; i < 32; i++) {
+                    if (interrupt.read() & (1 << i)) {
+                        interrupt_num = i;
+                        break;
+                    }
+                }
+                cout << "Interrupt " << interrupt_num << " Detected!" << endl;
+
+                // set the flag corresponding to the interrupt
+                interrupt_flag.write(1 << interrupt_num);
 
                 // store pc to interrupt return register for returning after completing isr
                 uepc.write(pc.read());
                 // read_registers();
                 
-                // Interrupt handler at location 0x01
-                pc.write(4);
+                // Interrupt handler starts at location 0x04 (each interrupt is given 4B)
+                pc.write(4 + (4 * interrupt_num));
                 continue;
             }
             // read_registers();
@@ -450,11 +488,12 @@ SC_MODULE(RV32I) {
         gpio->nreset(nreset);
         gpio->r_sel(r_sel);
         gpio->s_write(s_write);
-        gpio->data_in(data_in);
+        gpio->data_inout(data_inout);
         gpio->csr(csr);
         gpio->ddr(ddr);
         gpio->odr(odr);
         gpio->idr(idr);
+        gpio->gpio_inout(gpio_inout);
         sensitive << clk.pos() << nreset;
 
         // csr.write(0);
