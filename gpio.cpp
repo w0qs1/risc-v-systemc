@@ -5,7 +5,9 @@ SC_MODULE(GPIO) {
     sc_in<bool> nreset;
     sc_in<sc_uint<2>> r_sel;
     sc_in<bool> s_write;
-    sc_inout<sc_uint<32>> data_inout;
+    sc_in<bool> s_read;
+    sc_in<sc_uint<32>> data_in;
+    sc_out<sc_uint<32>> data_out;
 
     sc_out<sc_uint<32>> csr;
     sc_out<sc_uint<32>> ddr;
@@ -20,35 +22,37 @@ SC_MODULE(GPIO) {
             ddr.write(0);
             odr.write(0);
             idr.write(0);
-        } else if (s_write == true) {
+        } else if (s_write == true && s_read == false) {
+            // cout << "Register Selected: " << hex << r_sel << endl;
             if (r_sel.read() == 0) {
                 cout << "GPIO: CSR write" << endl;
-                csr.write(data_inout);
+                csr.write(data_in);
             } else if (r_sel.read() == 1) {
                 cout << "GPIO: DDR write" << endl;
-                ddr.write(data_inout);
+                ddr.write(data_in);
             } else if (r_sel.read() == 2) {
                 cout << "GPIO: ODR write" << endl;
-                odr.write(data_inout);
+                odr.write(data_in);
             }
-        } else if (s_write == false) {
+        } else if (s_read == true && s_write == false) {
+            // cout << "Register Selected: " << hex << r_sel << endl;
             if (r_sel.read() == 0) {
-                // cout << "GPIO: CSR read" << endl;
-                data_inout = csr.read();
+                cout << "GPIO: CSR read" << endl;
+                data_out = csr.read();
             } else if (r_sel.read() == 1) {
-                // cout << "GPIO: DDR read" << endl;
-                data_inout = ddr.read();
+                cout << "GPIO: DDR read" << endl;
+                data_out = ddr.read();
             } else if (r_sel.read() == 2) {
-                // cout << "GPIO: ODR read" << endl;
-                data_inout = odr.read();
+                cout << "GPIO: ODR read" << endl;
+                data_out = odr.read();
             } else if (r_sel.read() == 3) {
-                // cout << "GPIO: IDR read" << endl;
-                data_inout = idr.read();
+                cout << "GPIO: IDR read" << endl;
+                data_out = idr.read();
             }
         }
     }
     SC_CTOR(GPIO) {
         SC_METHOD(gpio_handle);
-        sensitive << nreset << r_sel << s_write;
+        sensitive << nreset << s_read << s_write;
     }
 };

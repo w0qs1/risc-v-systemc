@@ -25,7 +25,9 @@ SC_MODULE(RV32I) {
     // GPIO Peripheral registers:
     sc_signal<sc_uint<2>> r_sel;
     sc_signal<bool> s_write;
-    sc_signal<sc_uint<32>> data_inout;
+    sc_signal<bool> s_read;
+    sc_signal<sc_uint<32>> data_in;
+    sc_signal<sc_uint<32>> data_out;
     sc_signal<sc_uint<32>> csr;
     sc_signal<sc_uint<32>> ddr;
     sc_signal<sc_uint<32>> odr;
@@ -153,9 +155,11 @@ SC_MODULE(RV32I) {
             if (address < GPIO_BASE) {
                 read_data = data_memory[address].read();
             } else if (address >= GPIO_BASE && address < GPIO_END) {
-                s_write = false;
                 r_sel.write(address - GPIO_BASE);
-                read_data = data_inout.read() & 0xFF;
+                s_read = true;
+                read_data = data_out.read() & 0xFF;
+                wait();
+                s_read = false;
             }
             registers[rd].write((sc_uint<32>) sign_extend_8((sc_int<8>) read_data));
         } else if (opcode == 0x03 && funct3 == 0x1) {	// LH
@@ -164,9 +168,11 @@ SC_MODULE(RV32I) {
             if (address < GPIO_BASE) {
                 read_data = ((data_memory[address + 1].read() << 8) | (data_memory[address].read())) & 0xFFFF;
             } else if (address >= GPIO_BASE && address < GPIO_END) {
-                s_write = false;
                 r_sel.write(address - GPIO_BASE);
-                read_data = data_inout.read() && 0xFFFF;
+                s_read = true;
+                read_data = data_out.read() && 0xFFFF;
+                wait();
+                s_read = false;
             }
             registers[rd].write((sc_uint<32>) sign_extend_16((sc_int<16>) read_data));
         } else if (opcode == 0x03 && funct3 == 0x2) {	// LW
@@ -175,11 +181,12 @@ SC_MODULE(RV32I) {
             if (address < GPIO_BASE) {
                 read_data = (sc_uint<32>) (data_memory[address + 3].read() << 24) | (data_memory[address + 2].read() << 16) | (data_memory[address + 1].read() << 8) | data_memory[address].read();
             } else if (address >= GPIO_BASE && address < GPIO_END) {
-                s_write = false;
                 r_sel.write((address - GPIO_BASE) / 4);
-                read_data = data_inout.read();
+                s_read = true;
+                read_data = data_out.read();
+                wait();
+                s_read = false;
             }
-            cout << "Read Data: " << hex << read_data << endl;
             registers[rd].write((sc_uint<32>) read_data);
         } else if (opcode == 0x03 && funct3 == 0x4) {	// LBU
             cout << "LBU x" << dec << rd << hex << ", " << dec << imm_i << hex << "(x" << dec << rs1 << hex << ")" << endl;
@@ -216,20 +223,45 @@ SC_MODULE(RV32I) {
         rs2     = (instr >> 20) & 0x1F;
         // imm_s   = instr >> 18;
         imm_s   = ((instr >> 25) << 5) | ((instr >> 7) & 0x1F);
+        address = registers[rs1].read() + sign_extend_12(imm_s);
 
         if (funct3 == 0x0) {		// SB
             cout << "SB x" << dec << rs2 << hex << ", " << dec << imm_s << "(x" << dec << rs1 << hex << ")" << endl;
-            data_memory[registers[rs1].read() + sign_extend_12(imm_s)] = registers[rs2].read() & 0x000000FF;
+            if (address < GPIO_BASE) {
+                data_memory[address] = registers[rs2].read() & 0x000000FF;
+            } else if (address >= GPIO_BASE && address < GPIO_END) {
+                r_sel = (address - GPIO_BASE) / 4;
+                s_write = true;
+                wait();
+                data_in.write(registers[rs2].read());
+                s_write = false;
+            }
         } else if (funct3 == 0x1) {	// SH
             cout << "SH x" << dec << rs2 << hex << ", " << dec << imm_s << "(x" << dec << rs1 << hex << ")" << endl;
-            data_memory[registers[rs1].read() + sign_extend_12(imm_s)] = registers[rs2].read() & 0x000000FF;
-            data_memory[registers[rs1].read() + sign_extend_12(imm_s) + 1] = (registers[rs2].read() & 0x0000FF00) >> 8;
+            if (address < GPIO_BASE) {
+                data_memory[address] = registers[rs2].read() & 0x000000FF;
+                data_memory[address + 1] = (registers[rs2].read() & 0x0000FF00) >> 8;
+            } else if (address >= GPIO_BASE && address < GPIO_END) {
+                r_sel = (address - GPIO_BASE) / 4;
+                s_write = true;
+                wait();
+                data_in.write(registers[rs2].read());
+                s_write = false;
+            }
         } else if (funct3 == 0x2) {	// SW
             cout << "SW x" << dec << rs2 << hex << ", " << dec << imm_s << "(x" << dec << rs1 << hex << ")" << endl;
-            data_memory[registers[rs1].read() + sign_extend_12(imm_s)] = registers[rs2].read() & 0x000000FF;
-            data_memory[registers[rs1].read() + sign_extend_12(imm_s) + 1] = (registers[rs2].read() & 0x0000FF00) >> 8;
-            data_memory[registers[rs1].read() + sign_extend_12(imm_s) + 2] = (registers[rs2].read() & 0x00FF0000) >> 16;
-            data_memory[registers[rs1].read() + sign_extend_12(imm_s) + 3] = (registers[rs2].read() & 0xFF000000) >> 24;
+            if (address < GPIO_BASE) {
+                data_memory[address] = registers[rs2].read() & 0x000000FF;
+                data_memory[address + 1] = (registers[rs2].read() & 0x0000FF00) >> 8;
+                data_memory[address + 2] = (registers[rs2].read() & 0x00FF0000) >> 16;
+                data_memory[address + 3] = (registers[rs2].read() & 0xFF000000) >> 24;
+            } else if (address >= GPIO_BASE && address < GPIO_END) {
+                r_sel = (address - GPIO_BASE) / 4;
+                s_write = true;
+                wait();
+                data_in.write(registers[rs2].read());
+                s_write = false;
+            }
         }
     }
 
@@ -488,7 +520,9 @@ SC_MODULE(RV32I) {
         gpio->nreset(nreset);
         gpio->r_sel(r_sel);
         gpio->s_write(s_write);
-        gpio->data_inout(data_inout);
+        gpio->s_read(s_read);
+        gpio->data_out(data_out);
+        gpio->data_in(data_in);
         gpio->csr(csr);
         gpio->ddr(ddr);
         gpio->odr(odr);
