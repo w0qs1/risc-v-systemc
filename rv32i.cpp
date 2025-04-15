@@ -529,10 +529,5 @@ SC_MODULE(RV32I) {
         gpio->idr(idr);
         gpio->gpio_inout(gpio_inout);
         sensitive << clk.pos() << nreset;
-
-        // csr.write(0);
-        // ddr.write(0);
-        // odr.write(0);
-        // idr.write(0);
     }
 };

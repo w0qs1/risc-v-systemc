@@ -18,7 +18,7 @@ SC_MODULE(GPIO) {
 
     void gpio_handle(void) {
         if(nreset == false) {
-            csr.write(0x112233AA);
+            csr.write(0);
             ddr.write(0);
             odr.write(0);
             idr.write(0);
