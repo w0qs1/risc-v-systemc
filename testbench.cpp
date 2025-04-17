@@ -4,7 +4,7 @@
 
 SC_MODULE(Testbench) {
     sc_signal<bool> clk, nreset, halt;
-    sc_signal_rv<32> gpio_inout;
+    sc_signal_rv<32> gpio0_inout, gpio1_inout;
     sc_signal<sc_uint<32>> interrupt;
     RV32I *rv32i;
 
@@ -18,10 +18,16 @@ SC_MODULE(Testbench) {
     }
 
     void stim_proc() {
-        interrupt.write(0x000000000);
         nreset.write(false);
+        interrupt.write(0x000000000);
+        gpio0_inout.write(sc_lv<32>("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"));
+        gpio1_inout.write(sc_lv<32>("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"));
         wait(2, SC_NS);
         nreset.write(true);
+        wait(30, SC_NS);
+        gpio1_inout.write(sc_lv<32>("01010101010101010101010101010101"));
+        wait(30, SC_NS);
+        gpio1_inout.write(sc_lv<32>("10101010101010101010101010101010"));
         wait(10, SC_NS);
         // interrupt.write(0x000000001);
         // wait(2, SC_NS);
@@ -44,7 +50,8 @@ SC_MODULE(Testbench) {
         rv32i->nreset(nreset);
         rv32i->interrupt(interrupt);
         rv32i->halt(halt);
-        rv32i->gpio_inout(gpio_inout);
+        rv32i->gpio0_inout(gpio0_inout);
+        rv32i->gpio1_inout(gpio1_inout);
 
         // sc_trace_file *tf;
         // tf = sc_create_vcd_trace_file("waveform");

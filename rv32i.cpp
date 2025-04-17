@@ -12,7 +12,8 @@ SC_MODULE(RV32I) {
     sc_in<sc_uint<32>> interrupt;
     sc_out<bool> halt;
 
-    GPIO* gpio;
+    GPIO* gpio0;
+    GPIO* gpio1;
 
     sc_signal<sc_uint<32>> interrupt_flag;
     sc_signal<sc_uint<32>> return_pc;
@@ -20,16 +21,24 @@ SC_MODULE(RV32I) {
     sc_signal<sc_uint<32>> registers[32];
     sc_signal<sc_uint<32>> instruction_memory[INSTR_MEM_SIZE];
     sc_signal<sc_uint<8>> data_memory[DATA_MEM_SIZE];
-    sc_signal<sc_uint<32>> uepc ;
+    sc_signal<sc_uint<32>> uepc;
 
     // GPIO Peripheral registers:
-    sc_signal<sc_uint<2>> r_sel;
-    sc_signal<bool> s_write;
-    sc_signal<bool> s_read;
-    sc_signal<sc_uint<32>> data_in;
-    sc_signal<sc_uint<32>> data_out;
+    sc_signal<sc_uint<2>> gpio0_r_sel;
+    sc_signal<bool> gpio0_s_write;
+    sc_signal<bool> gpio0_s_read;
+    sc_signal<sc_uint<32>> gpio0_data_in;
+    sc_signal<sc_uint<32>> gpio0_data_out;
 
-    sc_inout_rv<32> gpio_inout;
+    sc_inout_rv<32> gpio0_inout;
+
+    sc_signal<sc_uint<2>> gpio1_r_sel;
+    sc_signal<bool> gpio1_s_write;
+    sc_signal<bool> gpio1_s_read;
+    sc_signal<sc_uint<32>> gpio1_data_in;
+    sc_signal<sc_uint<32>> gpio1_data_out;
+
+    sc_inout_rv<32> gpio1_inout;
 
     sc_uint<7> opcode;
     sc_uint<5> rd;
@@ -157,40 +166,58 @@ SC_MODULE(RV32I) {
         } else if (opcode == 0x03 && funct3 == 0x0) {	// LB
             cout << "LB x" << dec << rd << hex << ", " << imm_i << "(x" << dec << dec << rs1 << hex << hex << ")" << endl;
             address = registers[rs1].read() + sign_extend_12(imm_i);
-            if (address < GPIO_BASE) {
+            if (address < GPIO0_BASE) {
                 read_data = data_memory[address].read();
-            } else if (address >= GPIO_BASE && address < GPIO_END) {
-                r_sel.write(address - GPIO_BASE);
-                s_read = true;
-                read_data = data_out.read() & 0xFF;
+            } else if (address >= GPIO0_BASE && address < GPIO0_END) {
+                gpio0_r_sel.write((address - GPIO0_BASE) / 4);
+                gpio0_s_read = true;
+                read_data = gpio0_data_out.read() & 0xFF;
                 wait();
-                s_read = false;
+                gpio0_s_read = false;
+            } else if (address >= GPIO1_BASE && address < GPIO1_END) {
+                gpio1_r_sel.write((address - GPIO1_BASE) / 4);
+                gpio1_s_read = true;
+                read_data = gpio1_data_out.read() & 0xFF;
+                wait();
+                gpio1_s_read = false;
             }
             registers[rd].write((sc_uint<32>) sign_extend_8((sc_int<8>) read_data));
         } else if (opcode == 0x03 && funct3 == 0x1) {	// LH
             cout << "LH x" << dec << rd << hex << ", " << imm_i << "(x" << dec << dec << rs1 << hex << hex << ")" << endl;
             address = registers[rs1].read() + sign_extend_12(imm_i);
-            if (address < GPIO_BASE) {
+            if (address < GPIO0_BASE) {
                 read_data = ((data_memory[address + 1].read() << 8) | (data_memory[address].read())) & 0xFFFF;
-            } else if (address >= GPIO_BASE && address < GPIO_END) {
-                r_sel.write(address - GPIO_BASE);
-                s_read = true;
-                read_data = data_out.read() && 0xFFFF;
+            } else if (address >= GPIO0_BASE && address < GPIO0_END) {
+                gpio0_r_sel.write((address - GPIO0_BASE) / 4);
+                gpio0_s_read = true;
+                read_data = gpio0_data_out.read() && 0xFFFF;
                 wait();
-                s_read = false;
+                gpio0_s_read = false;
+            } else if (address >= GPIO1_BASE && address < GPIO1_END) {
+                gpio1_r_sel.write((address - GPIO1_BASE) / 4);
+                gpio1_s_read = true;
+                read_data = gpio1_data_out.read() && 0xFFFF;
+                wait();
+                gpio1_s_read = false;
             }
             registers[rd].write((sc_uint<32>) sign_extend_16((sc_int<16>) read_data));
         } else if (opcode == 0x03 && funct3 == 0x2) {	// LW
             cout << "LW x" << dec << rd << hex << ", " << dec << imm_i << hex << "(x" << dec << rs1 << hex << ")" << endl;
             address = registers[rs1].read() + sign_extend_12(imm_i);
-            if (address < GPIO_BASE) {
+            if (address < GPIO0_BASE) {
                 read_data = (sc_uint<32>) (data_memory[address + 3].read() << 24) | (data_memory[address + 2].read() << 16) | (data_memory[address + 1].read() << 8) | data_memory[address].read();
-            } else if (address >= GPIO_BASE && address < GPIO_END) {
-                r_sel.write((address - GPIO_BASE) / 4);
-                s_read = true;
-                read_data = data_out.read();
+            } else if (address >= GPIO0_BASE && address < GPIO0_END) {
+                gpio0_r_sel.write((address - GPIO0_BASE) / 4);
+                gpio0_s_read = true;
+                read_data = gpio0_data_out.read();
                 wait();
-                s_read = false;
+                gpio0_s_read = false;
+            } else if (address >= GPIO1_BASE && address < GPIO1_END) {
+                gpio1_r_sel.write((address - GPIO1_BASE) / 4);
+                gpio1_s_read = true;
+                read_data = gpio1_data_out.read();
+                wait();
+                gpio1_s_read = false;
             }
             registers[rd].write((sc_uint<32>) read_data);
         } else if (opcode == 0x03 && funct3 == 0x4) {	// LBU
@@ -232,40 +259,58 @@ SC_MODULE(RV32I) {
 
         if (funct3 == 0x0) {		// SB
             cout << "SB x" << dec << rs2 << hex << ", " << dec << imm_s << "(x" << dec << rs1 << hex << ")" << endl;
-            if (address < GPIO_BASE) {
+            if (address < GPIO0_BASE) {
                 data_memory[address] = registers[rs2].read() & 0x000000FF;
-            } else if (address >= GPIO_BASE && address < GPIO_END) {
-                r_sel = (address - GPIO_BASE) / 4;
-                s_write = true;
-                data_in.write(registers[rs2].read());
+            } else if (address >= GPIO0_BASE && address < GPIO0_END) {
+                gpio0_r_sel = (address - GPIO0_BASE) / 4;
+                gpio0_s_write = true;
+                gpio0_data_in.write(registers[rs2].read() & 0x000000FF);
                 wait();
-                s_write = false;
+                gpio0_s_write = false;
+            } else if (address >= GPIO1_BASE && address < GPIO1_END) {
+                gpio1_r_sel = (address - GPIO1_BASE) / 4;
+                gpio1_s_write = true;
+                gpio1_data_in.write(registers[rs2].read() & 0x000000FF);
+                wait();
+                gpio1_s_write = false;
             }
         } else if (funct3 == 0x1) {	// SH
             cout << "SH x" << dec << rs2 << hex << ", " << dec << imm_s << "(x" << dec << rs1 << hex << ")" << endl;
-            if (address < GPIO_BASE) {
+            if (address < GPIO0_BASE) {
                 data_memory[address] = registers[rs2].read() & 0x000000FF;
                 data_memory[address + 1] = (registers[rs2].read() & 0x0000FF00) >> 8;
-            } else if (address >= GPIO_BASE && address < GPIO_END) {
-                r_sel = (address - GPIO_BASE) / 4;
-                s_write = true;
-                data_in.write(registers[rs2].read());
+            } else if (address >= GPIO0_BASE && address < GPIO0_END) {
+                gpio0_r_sel = (address - GPIO0_BASE) / 4;
+                gpio0_s_write = true;
+                gpio0_data_in.write(registers[rs2].read() & 0x0000FFFF);
                 wait();
-                s_write = false;
+                gpio0_s_write = false;
+            } else if (address >= GPIO1_BASE && address < GPIO1_END) {
+                gpio1_r_sel = (address - GPIO1_BASE) / 4;
+                gpio1_s_write = true;
+                gpio1_data_in.write(registers[rs2].read() & 0x0000FFFF);
+                wait();
+                gpio1_s_write = false;
             }
         } else if (funct3 == 0x2) {	// SW
             cout << "SW x" << dec << rs2 << hex << ", " << dec << imm_s << "(x" << dec << rs1 << hex << ")" << endl;
-            if (address < GPIO_BASE) {
+            if (address < GPIO0_BASE) {
                 data_memory[address] = registers[rs2].read() & 0x000000FF;
                 data_memory[address + 1] = (registers[rs2].read() & 0x0000FF00) >> 8;
                 data_memory[address + 2] = (registers[rs2].read() & 0x00FF0000) >> 16;
                 data_memory[address + 3] = (registers[rs2].read() & 0xFF000000) >> 24;
-            } else if (address >= GPIO_BASE && address < GPIO_END) {
-                r_sel = (address - GPIO_BASE) / 4;
-                s_write = true;
-                data_in.write(registers[rs2].read());
+            } else if (address >= GPIO0_BASE && address < GPIO0_END) {
+                gpio0_r_sel = (address - GPIO0_BASE) / 4;
+                gpio0_s_write = true;
+                gpio0_data_in.write(registers[rs2].read());
                 wait();
-                s_write = false;
+                gpio0_s_write = false;
+            } else if (address >= GPIO1_BASE && address < GPIO1_END) {
+                gpio1_r_sel = (address - GPIO1_BASE) / 4;
+                gpio1_s_write = true;
+                gpio1_data_in.write(registers[rs2].read());
+                wait();
+                gpio1_s_write = false;
             }
         }
     }
@@ -475,7 +520,7 @@ SC_MODULE(RV32I) {
     void fetch_decode(void) {
         // uint32_t test_program[9] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
         // uint32_t test_program[13] = {0x0100006f, 0x0040006f, 0x00150513, 0x00200073, 0x00400293, 0x20000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
-        uint32_t test_program[14] = {0x0100006f, 0x0040006f, 0x00150513, 0x00200073, 0x00a00293, 0x20000313, 0xfff00393, 0x00732223, 0x00832e03, 0x007e4e33, 0x01c32423, 0xfff28293, 0xfe0298e3, 0x00000073};
+        uint32_t test_program[16] = {0x0100006f, 0x0040006f, 0x00150513, 0x00200073, 0x00a00293, 0x20000313, 0xfff00393, 0x00732223, 0x00032a23, 0x00832e03, 0x007e4e33, 0x01c32423, 0x01c32e83, 0xfff28293, 0xfe0298e3, 0x00000073};
         uint8_t test_data[20] = {0x22, 0x00, 0x00, 0x00, 0x39, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00};
         while(true) {
             wait();
@@ -486,7 +531,7 @@ SC_MODULE(RV32I) {
                 halt.write(false);
                 mem_accessed.write(false);
                 reset_registers();
-                set_instruction_mem(test_program, 14);
+                set_instruction_mem(test_program, 16);
                 set_data_mem(test_data, 20);
                 continue;
             } else if (interrupt.read() && !interrupt_flag.read()) {
@@ -521,15 +566,27 @@ SC_MODULE(RV32I) {
 
     SC_CTOR(RV32I) {
         SC_THREAD(fetch_decode);
-        gpio = new GPIO("gpio");
-        gpio->clk(clk);
-        gpio->nreset(nreset);
-        gpio->r_sel(r_sel);
-        gpio->s_write(s_write);
-        gpio->s_read(s_read);
-        gpio->data_out(data_out);
-        gpio->data_in(data_in);
-        gpio->gpio_inout(gpio_inout);
+
+        gpio0 = new GPIO("gpio0");
+        gpio0->clk(clk);
+        gpio0->nreset(nreset);
+        gpio0->r_sel(gpio0_r_sel);
+        gpio0->s_write(gpio0_s_write);
+        gpio0->s_read(gpio0_s_read);
+        gpio0->data_out(gpio0_data_out);
+        gpio0->data_in(gpio0_data_in);
+        gpio0->gpio_inout(gpio0_inout);
+
+        gpio1 = new GPIO("gpio1");
+        gpio1->clk(clk);
+        gpio1->nreset(nreset);
+        gpio1->r_sel(gpio1_r_sel);
+        gpio1->s_write(gpio1_s_write);
+        gpio1->s_read(gpio1_s_read);
+        gpio1->data_out(gpio1_data_out);
+        gpio1->data_in(gpio1_data_in);
+        gpio1->gpio_inout(gpio1_inout);
+
         sensitive << clk.pos() << nreset;
     }
 };

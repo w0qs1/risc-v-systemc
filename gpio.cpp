@@ -141,23 +141,48 @@ SC_MODULE(GPIO) {
         }
     }
 
+    // void gpio_logic() {
+    //     if (nreset.read() == false) {
+    //         idr_reg.write(0);
+    //         gpio_inout.write(sc_lv<32>("00000000000000000000000000000000"));
+    //     } else {
+    //         sc_uint<32> gpio_val = gpio_inout.read();
+    //         sc_uint<32> idr_val = idr_reg.read();
+    //         out_val = 0;
+
+    //         for (int i = 0; i < 32; i++) {
+    //             if (ddr_reg.read()[i]) {
+    //                 out_val[i] = odr_reg.read()[i].to_bool(); // output mode
+    //             } else {
+    //                 idr_val[i] = gpio_val[i];       // input mode
+    //             }
+    //         }
+
+    //         gpio_inout.write(sc_lv<32>(out_val));
+    //         idr_reg.write(idr_val);
+    //     }
+    // }
     void gpio_logic() {
         if (nreset.read() == false) {
             idr_reg.write(0);
+            gpio_inout.write(sc_lv<32>("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"));
         } else {
-            sc_uint<32> gpio_val = gpio_inout.read();
+            sc_lv<32> bus_drive;  // What GPIO drives onto the bus
+            sc_lv<32> bus_val = gpio_inout.read();  // What’s currently on the bus (from outside)
             sc_uint<32> idr_val = idr_reg.read();
-            out_val = 0;
-
+    
             for (int i = 0; i < 32; i++) {
                 if (ddr_reg.read()[i]) {
-                    out_val[i] = odr_reg.read()[i].to_bool(); // output mode
+                    // Output mode: drive from ODR
+                    bus_drive[i] = odr_reg.read()[i].to_bool();
                 } else {
-                    idr_val[i] = gpio_val[i];       // input mode
+                    // Input mode: read what's on the bus
+                    idr_val[i] = bus_val[i].to_bool();
+                    bus_drive[i] = sc_dt::Log_Z;  // Do NOT drive anything
                 }
             }
-
-            gpio_inout.write(sc_lv<32>(out_val));
+    
+            gpio_inout.write(bus_drive);
             idr_reg.write(idr_val);
         }
     }
@@ -169,10 +194,9 @@ SC_MODULE(GPIO) {
     void gpio_monitor() {
         sc_lv<32> val_lv = gpio_inout.read();
         if (!val_lv.is_01()) {
-            std::cout << sc_time_stamp() << " GPIO Output contains non-binary value: " << val_lv << std::endl;
+            std::cout << sc_time_stamp() << " " << basename() << " Output contains non-binary value: 0b" << val_lv.to_string() << std::endl;
         } else {
-            uint32_t val = val_lv.to_uint();
-            std::cout << sc_time_stamp() << " GPIO Output Value: 0x" << std::hex << val << std::endl;
+            std::cout << sc_time_stamp() << " " << basename() << " Output Value: 0x" << std::hex << val_lv.to_uint() << std::endl;
         }
     }
     
@@ -182,7 +206,7 @@ SC_MODULE(GPIO) {
         sensitive << clk.pos();
 
         SC_METHOD(gpio_logic);
-        sensitive << ddr_reg << odr_reg << gpio_inout;
+        sensitive << ddr_reg << odr_reg << csr_reg;
 
         SC_METHOD(gpio_monitor);
         sensitive << gpio_inout;
