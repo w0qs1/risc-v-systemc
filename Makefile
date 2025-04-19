@@ -30,5 +30,9 @@ run: $(TARGET)
 clean:
 	rm -f $(OBJ) $(TARGET) waveform.vcd
 
+rebuild:
+	make clean
+	make
+
 # Usage example:
 # make all SRC_DIR=path/to/source

@@ -24,14 +24,15 @@ SC_MODULE(Testbench) {
         gpio1_inout.write(sc_lv<32>("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"));
         wait(2, SC_NS);
         nreset.write(true);
+        wait(10, SC_NS);
+        interrupt.write(0x000000002);
+        wait(10, SC_NS);
+        interrupt.write(0x000000000);
         wait(30, SC_NS);
         gpio1_inout.write(sc_lv<32>("01010101010101010101010101010101"));
         wait(30, SC_NS);
         gpio1_inout.write(sc_lv<32>("10101010101010101010101010101010"));
         wait(10, SC_NS);
-        // interrupt.write(0x000000001);
-        // wait(2, SC_NS);
-        // interrupt.write(0x000000000);
     }
 
     void stop_on_halt() {
