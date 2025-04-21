@@ -37,10 +37,10 @@ SC_MODULE(Testbench) {
         gpio1_inout.write(sc_lv<32>("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"));
         wait(2, SC_NS);
         nreset.write(true);
-        wait(40, SC_NS);
-        internal_interrupts.write(0x000000002);
-        wait(10, SC_NS);
-        internal_interrupts.write(0x000000000);
+        // wait(40, SC_NS);
+        // internal_interrupts.write(0x000000002);
+        // wait(10, SC_NS);
+        // internal_interrupts.write(0x000000000);
         // wait(30, SC_NS);
         // gpio1_inout.write(sc_lv<32>("01010101010101010101010101010101"));
         // wait(30, SC_NS);
