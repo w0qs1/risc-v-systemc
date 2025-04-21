@@ -41,11 +41,11 @@ SC_MODULE(Testbench) {
         internal_interrupts.write(0x000000002);
         wait(10, SC_NS);
         internal_interrupts.write(0x000000000);
-        wait(30, SC_NS);
-        gpio1_inout.write(sc_lv<32>("01010101010101010101010101010101"));
-        wait(30, SC_NS);
-        gpio1_inout.write(sc_lv<32>("10101010101010101010101010101010"));
-        wait(10, SC_NS);
+        // wait(30, SC_NS);
+        // gpio1_inout.write(sc_lv<32>("01010101010101010101010101010101"));
+        // wait(30, SC_NS);
+        // gpio1_inout.write(sc_lv<32>("10101010101010101010101010101010"));
+        // wait(10, SC_NS);
 
         wait(STOP_TIME, SC_NS);
         cout << endl << "---------------------------------------" << endl;

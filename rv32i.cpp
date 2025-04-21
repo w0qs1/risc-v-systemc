@@ -580,8 +580,6 @@ SC_MODULE(RV32I) {
     void fetch_decode(void) {
         // uint32_t test_program[9] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
         // uint32_t test_program[13] = {0x0100006f, 0x0040006f, 0x00150513, 0x00200073, 0x00400293, 0x20000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
-        extern uint32_t test_program[32];
-        extern uint8_t test_data[20];
         while(true) {
             wait();
             if(nreset.read() == 0) {
@@ -592,8 +590,8 @@ SC_MODULE(RV32I) {
                 mem_accessed.write(false);
                 interrupt_flag.write(0);
                 reset_registers();
-                set_instruction_mem(test_program, 32);
-                set_data_mem(test_data, 20);
+                set_instruction_mem(test_program, INSTR_MEM_SIZE);
+                set_data_mem(test_data, DATA_MEM_SIZE);
                 continue;
             } else if ((sc_uint<32>) interrupt && (sc_uint<32>) !interrupt_flag.read()) {
                 // interrupt flag is read to prevent multiple triggers
