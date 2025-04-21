@@ -10,6 +10,14 @@ SC_MODULE(Testbench) {
     sc_signal<sc_uint<32>> interrupt_flag;
     sc_signal<sc_uint<64>> run_cycles;
     sc_signal<sc_uint<64>> wfi_cycles;
+    sc_signal<sc_uint<64>> r_type_cycles;
+    sc_signal<sc_uint<64>> i_type_cycles;
+    sc_signal<sc_uint<64>> s_type_cycles;
+    sc_signal<sc_uint<64>> u_type_cycles;
+    sc_signal<sc_uint<64>> j_type_cycles;
+    sc_signal<sc_uint<64>> b_type_cycles;
+    sc_signal<sc_uint<64>> y_type_cycles;
+    sc_signal<sc_uint<64>> x_type_cycles;
 
     RV32I *rv32i;
 
@@ -47,30 +55,55 @@ SC_MODULE(Testbench) {
         // gpio1_inout.write(sc_lv<32>("10101010101010101010101010101010"));
         // wait(10, SC_NS);
 
-        wait(STOP_TIME, SC_NS);
+        wait(STOP_TIME - 2, SC_NS);
+        cout << endl << "---------------------------------------" << endl;
+        cout << "Instruction Summary:" << endl;
+        cout << "---------------------------------------" << endl;
+        cout << "Instructions executed based on type:" << endl;
+        cout << "R-Type:\t\t" << dec << r_type_cycles << endl;
+        cout << "I-Type:\t\t" << dec << i_type_cycles << endl;
+        cout << "S-Type:\t\t" << dec << s_type_cycles << endl;
+        cout << "U-Type:\t\t" << dec << u_type_cycles << endl;
+        cout << "B-Type:\t\t" << dec << b_type_cycles << endl;
+        cout << "J-Type:\t\t" << dec << j_type_cycles << endl;
+        cout << "Syscalls:\t" << dec << y_type_cycles << endl;
+        cout << "Unknown:\t" << dec << x_type_cycles << endl;
         cout << endl << "---------------------------------------" << endl;
         cout << "Generated Power and Energy Report:" << endl;
         cout << "---------------------------------------" << endl;
         cout << "Total Time = " << sc_time_stamp() << endl;
-        cout << "Run Cycles: " << dec << run_cycles << endl;
         cout << "WFI Cycles: " << dec << wfi_cycles << endl;
-        double energy = ((sc_uint<64>) run_cycles * 2e-09 * ACTIVE_POWER) + ((sc_uint<64>) wfi_cycles * 2e-09 * SLEEP_POWER);
-        cout << "Estimated Core Power (W) = " << ((double) energy / sc_time_stamp().to_seconds()) << endl;
+        double energy = ((sc_uint<64>) r_type_cycles * R_TYPE_POWER) \
+        + ((sc_uint<64>) r_type_cycles * R_TYPE_POWER) \
+        + ((sc_uint<64>) i_type_cycles * I_TYPE_POWER) \
+        + ((sc_uint<64>) s_type_cycles * S_TYPE_POWER) \
+        + ((sc_uint<64>) u_type_cycles * U_TYPE_POWER) \
+        + ((sc_uint<64>) b_type_cycles * B_TYPE_POWER) \
+        + ((sc_uint<64>) j_type_cycles * J_TYPE_POWER) \
+        + ((sc_uint<64>) y_type_cycles * Y_TYPE_POWER) \
+        + ((sc_uint<64>) x_type_cycles * X_TYPE_POWER) \
+        + ((sc_uint<64>) wfi_cycles * 2e-09 * SLEEP_POWER);
+        cout << "Estimated Core Power (W): " << ((double) energy / sc_time_stamp().to_seconds()) << endl;
+        cout << "Core Energy(J): " << dec << energy << endl;
         cout << "GPIO1.0 ON cycles: " << dec << ((double) gpio10_count / 2) << endl;
         cout << "GPIO1.0 Duty cycle: " << dec << (1e-09 * (double) gpio10_count / sc_time_stamp().to_seconds()) << endl;
         cout << "GPIO1.1 ON cycles: " << dec << ((double) gpio11_count / 2) << endl;
         cout << "GPIO1.1 Duty cycle: " << dec << (1e-09 * (double) gpio11_count / sc_time_stamp().to_seconds()) << endl;
-
-        cout << "---------------------------------------" << endl;
-        cout << "Core Energy(J): " << dec << energy << endl;
         energy += (double) gpio10_count * 1E-09 * GPIO10_POWER;
         energy += (double) gpio11_count * 1E-09 * GPIO11_POWER;
         cout << "Temperature Sensor Energy(J): " << ((double) gpio10_count * 1E-09 * GPIO10_POWER) << endl;
         cout << "Display Energy(J): " << ((double) gpio11_count * 1E-09 * GPIO11_POWER) << endl;
         cout << "=======================================" << endl;
         cout << "Total Energy(J) = " << dec << energy << endl;
-        cout << "=======================================" << endl;
         cout << "Estimated System Power(W): " << (energy / sc_time_stamp().to_seconds()) << endl;
+        cout << "=======================================" << endl;
+        cout << endl << "---------------------------------------" << endl;
+        cout << "Battery Lifetime estimation:" << endl;
+        cout << "---------------------------------------" << endl;
+        cout << "Battery Capacity in mAh: " << (BAT_CAPACITY * 1E+03) << endl;
+        cout << "Battery Voltage in V: " << BAT_VOLTAGE << endl;
+        cout << "=======================================" << endl;
+        cout << "Estimated Lifetime (hours): " << (BAT_CAP_WH / (energy / sc_time_stamp().to_seconds())) << endl;
         cout << "=======================================" << endl;
         // cout << sc_time_stamp() << endl;
         sc_stop();
@@ -129,6 +162,14 @@ SC_MODULE(Testbench) {
         rv32i->wfi_cycles(wfi_cycles);
         rv32i->gpio0_inout(gpio0_inout);
         rv32i->gpio1_inout(gpio1_inout);
+        rv32i->r_type_cycles(r_type_cycles);
+        rv32i->i_type_cycles(i_type_cycles);
+        rv32i->s_type_cycles(s_type_cycles);
+        rv32i->u_type_cycles(u_type_cycles);
+        rv32i->b_type_cycles(b_type_cycles);
+        rv32i->j_type_cycles(j_type_cycles);
+        rv32i->y_type_cycles(y_type_cycles);
+        rv32i->x_type_cycles(x_type_cycles);
 
         // sc_trace_file *tf;
         // tf = sc_create_vcd_trace_file("waveform");

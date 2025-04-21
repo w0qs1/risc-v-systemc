@@ -16,6 +16,14 @@ SC_MODULE(RV32I) {
     sc_out<bool> halt;
     sc_out<sc_uint<64>> run_cycles;
     sc_out<sc_uint<64>> wfi_cycles;
+    sc_out<sc_uint<64>> r_type_cycles;
+    sc_out<sc_uint<64>> i_type_cycles;
+    sc_out<sc_uint<64>> s_type_cycles;
+    sc_out<sc_uint<64>> u_type_cycles;
+    sc_out<sc_uint<64>> j_type_cycles;
+    sc_out<sc_uint<64>> b_type_cycles;
+    sc_out<sc_uint<64>> y_type_cycles;
+    sc_out<sc_uint<64>> x_type_cycles;
     
     bool wfi_flag;
 
@@ -491,7 +499,7 @@ SC_MODULE(RV32I) {
             pc.write(uepc.read() - 4);
         } else if (instr == 0x10500073) {   // wfi
             // Wait for interrupt
-            cout << "WFI" << endl;
+            cout << "WFI\t\t| Waiting for Interrupt!" << endl;
             wfi_flag = true;
         }
     }
@@ -507,43 +515,53 @@ SC_MODULE(RV32I) {
         switch(opcode) {
             case 0x33: // R-type
                 handle_r_type(instr);
+                r_type_cycles.write((sc_uint<64>) r_type_cycles.read() + 1);
                 break;
 
             case 0x03:  // I-type
             case 0x13:
                 handle_i_type(instr);
+                i_type_cycles.write((sc_uint<64>) i_type_cycles.read() + 1);
                 break;
 
             case 0x23:  // S-type
                 handle_s_type(instr);
+                s_type_cycles.write((sc_uint<64>) s_type_cycles.read() + 1);
 				break;
 
             case 0x37:  // U-type (LUI)
                 handle_u_type_lui(instr);
+                u_type_cycles.write((sc_uint<64>) u_type_cycles.read() + 1);
                 break;
 
             case 0x17:  // U-type (AUIPC)
                 handle_u_type_auipc(instr);
+                u_type_cycles.write((sc_uint<64>) u_type_cycles.read() + 1);
                 break;
 
             case 0x6F:  // J-type (JAL)
                 handle_j_type_jal(instr);
+                j_type_cycles.write((sc_uint<64>) j_type_cycles.read() + 1);
                 break;
 
             case 0x67:  // J-type (JALR)
                 handle_j_type_jalr(instr);
+                j_type_cycles.write((sc_uint<64>) j_type_cycles.read() + 1);
                 break;
 
             case 0x63:  // B-type
                 handle_b_type(instr);
+                b_type_cycles.write((sc_uint<64>) b_type_cycles.read() + 1);
                 break;
 
             case 0x73:  // e-call, uret, wfi;
                 handle_sys_type(instr);
+                y_type_cycles.write((sc_uint<64>) y_type_cycles.read() + 1);
                 break;
 
             default:
                 handle_invalid_instruction(instr);
+                x_type_cycles.write((sc_uint<64>) x_type_cycles.read() + 1);
                 break;
     	}
         registers[0].write(0x00000000UL);

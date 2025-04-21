@@ -17,18 +17,33 @@
 #define SYSTICK_BASE    GPIO1_END
 #define SYSTICK_END     SYSTICK_BASE + (3 * 4)
 
-#define SLEEP_PERIOD    128
+#define SLEEP_PERIOD    512
 
-#define STOP_TIME       8192
+#define STOP_TIME       32768
 
 // Power configuration
-#define ACTIVE_POWER    1000E-06
+#define R_TYPE_POWER    2500E-12
+#define I_TYPE_POWER    10000E-12
+#define S_TYPE_POWER    10000E-12
+#define U_TYPE_POWER    6500E-12
+#define B_TYPE_POWER    8000E-12
+#define J_TYPE_POWER    7500E-12
+#define Y_TYPE_POWER    3500E-12
+#define X_TYPE_POWER    3000E-12
+
+// #define ACTIVE_POWER    1000E-06
 #define SLEEP_POWER     10E-06
 
 // Temperature Sensor Power
 #define GPIO10_POWER    20E-03
 
 // Dispaly Power
-#define GPIO11_POWER    40E-03
+#define GPIO11_POWER    80E-03
+
+// Battery Capacity (Ah)
+#define BAT_CAPACITY    2500E-03
+// Battery Nominal Voltage (V)
+#define BAT_VOLTAGE     3.7
+#define BAT_CAP_WH      BAT_CAPACITY * BAT_VOLTAGE
 
 #endif

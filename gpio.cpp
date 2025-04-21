@@ -194,9 +194,9 @@ SC_MODULE(GPIO) {
     void gpio_monitor() {
         sc_lv<32> val_lv = gpio_inout.read();
         if (!val_lv.is_01()) {
-            std::cout << sc_time_stamp() << " " << basename() << " Output contains non-binary value: 0b" << val_lv.to_string() << std::endl;
+            // std::cout << sc_time_stamp() << " " << basename() << " Output contains non-binary value: 0b" << val_lv.to_string() << std::endl;
         } else {
-            std::cout << sc_time_stamp() << " " << basename() << " Output Value: 0x" << std::hex << val_lv.to_uint() << std::endl;
+            // std::cout << sc_time_stamp() << " " << basename() << " Output Value: 0x" << std::hex << val_lv.to_uint() << std::endl;
         }
     }
     
