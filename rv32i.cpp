@@ -4,6 +4,7 @@
 #include "config.h"
 #include "gpio.cpp"
 #include "systick.cpp"
+#include "application.h"
 
 using namespace std;
 
@@ -11,14 +12,20 @@ SC_MODULE(RV32I) {
     sc_in<bool> clk;
     sc_in<bool> nreset;
     sc_in<sc_uint<32>> interrupt;
+    sc_out<sc_uint<32>> interrupt_flag;
     sc_out<bool> halt;
+    sc_out<sc_uint<64>> run_cycles;
+    sc_out<sc_uint<64>> wfi_cycles;
+    
+    bool wfi_flag;
 
     GPIO* gpio0;
     GPIO* gpio1;
     SysTick* systick;
 
-    sc_signal<sc_uint<32>> interrupt_flag;
+    // sc_signal<sc_uint<32>> interrupt_flag;
     sc_signal<sc_uint<32>> interrupt_sig;
+    bool interrupt_pending;
     sc_signal<sc_uint<32>> return_pc;
     sc_signal<sc_uint<32>> pc;
     sc_signal<sc_uint<32>> registers[32];
@@ -419,8 +426,8 @@ SC_MODULE(RV32I) {
             cout << "BEQ x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() == registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 4);
-                wait();
                 cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
+                wait();
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
@@ -428,8 +435,8 @@ SC_MODULE(RV32I) {
             cout << "BNE x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if (registers[rs1].read() != registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 4);
-                wait();
                 cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
+                // wait();
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
@@ -437,8 +444,8 @@ SC_MODULE(RV32I) {
             cout << "BLT x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if ((int32_t) registers[rs1].read() < (int32_t) registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 4);
-                wait();
                 cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
+                wait();
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
@@ -446,8 +453,8 @@ SC_MODULE(RV32I) {
             cout << "BGE x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if ((int32_t) registers[rs1].read() >= (int32_t) registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 4);
-                wait();
                 cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
+                wait();
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
@@ -455,8 +462,8 @@ SC_MODULE(RV32I) {
             cout << "BLTU x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() < registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 4);
-                wait();
                 cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
+                wait();
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
@@ -464,8 +471,8 @@ SC_MODULE(RV32I) {
             cout << "BGEU x" << dec << rs1 << hex << ", x" << dec << rs2 << hex << ", " << dec << imm_b;
             if(registers[rs1].read() >= registers[rs2].read()) {
                 pc.write((sc_uint<32>) pc.read() + imm_b - 4);
-                wait();
                 cout << hex << " | Branch Taken, New PC: 0x" << setw(8) << setfill('0') << pc.read() + 4 << endl;
+                wait();
             } else {
                 cout << hex << " | Branch NOT Taken" << endl;
             }
@@ -480,8 +487,12 @@ SC_MODULE(RV32I) {
             // Set the pc to the return address (of user code) stored in uepc register
             cout << "URET" << endl;
             cout << "Interrupt Complete!" << endl;
-            interrupt_flag.write(0);    
+            interrupt_flag.write(0);
             pc.write(uepc.read() - 4);
+        } else if (instr == 0x10500073) {   // wfi
+            // Wait for interrupt
+            cout << "WFI" << endl;
+            wfi_flag = true;
         }
     }
 
@@ -516,7 +527,7 @@ SC_MODULE(RV32I) {
                 break;
 
             case 0x6F:  // J-type (JAL)
-                handle_j_type_jal(instr);                
+                handle_j_type_jal(instr);
                 break;
 
             case 0x67:  // J-type (JALR)
@@ -527,7 +538,7 @@ SC_MODULE(RV32I) {
                 handle_b_type(instr);
                 break;
 
-            case 0x73:  // e-call;
+            case 0x73:  // e-call, uret, wfi;
                 handle_sys_type(instr);
                 break;
 
@@ -569,8 +580,8 @@ SC_MODULE(RV32I) {
     void fetch_decode(void) {
         // uint32_t test_program[9] = {0x00500293, 0x00000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
         // uint32_t test_program[13] = {0x0100006f, 0x0040006f, 0x00150513, 0x00200073, 0x00400293, 0x20000313, 0x00032383, 0x00538393, 0x00732023, 0xfff28293, 0x00430313, 0xfe0296e3, 0x00000073};
-        uint32_t test_program[25] = {0x01c0006f, 0x0080006f, 0x00c0006f, 0x00150513, 0x00200073, 0x00158593, 0x00200073, 0x00a00293, 0x20000313, 0xfff00393, 0x00732223, 0x00032a23, 0x00100393, 0x02732023, 0x02000393, 0x02732423, 0x00832e03, 0x007e4e33, 0x01c32423, 0x02432e83, 0xfff28293, 0xfe0298e3, 0x00000073};
-        uint8_t test_data[20] = {0x22, 0x00, 0x00, 0x00, 0x39, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00, 0x3a, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00};
+        extern uint32_t test_program[32];
+        extern uint8_t test_data[20];
         while(true) {
             wait();
             if(nreset.read() == 0) {
@@ -581,22 +592,25 @@ SC_MODULE(RV32I) {
                 mem_accessed.write(false);
                 interrupt_flag.write(0);
                 reset_registers();
-                set_instruction_mem(test_program, 25);
+                set_instruction_mem(test_program, 32);
                 set_data_mem(test_data, 20);
                 continue;
-            } else if (interrupt_sig.read() && !interrupt_flag.read()) {
+            } else if ((sc_uint<32>) interrupt && (sc_uint<32>) !interrupt_flag.read()) {
                 // interrupt flag is read to prevent multiple triggers
+                // cout << "Inside Interrupt Logic!" << endl;
                 sc_uint<8> interrupt_num = 0;
                 for(uint8_t i = 0; i < 32; i++) {
-                    if (interrupt.read() & (1 << i)) {
+                    if ((sc_uint<32>) interrupt & (1 << i)) {
                         interrupt_num = i;
                         break;
                     }
                 }
-                cout << "Interrupt " << interrupt_num << " Detected!" << endl;
+                cout << "Interrupt " << dec << interrupt_num << " Detected at " << sc_time_stamp() << endl;
+                wfi_flag = false;
 
                 // set the flag corresponding to the interrupt
                 interrupt_flag.write(1 << interrupt_num);
+                interrupt_pending = false;
 
                 // store pc to interrupt return register for returning after completing isr
                 uepc.write(pc.read());
@@ -605,33 +619,54 @@ SC_MODULE(RV32I) {
                 // Interrupt handler starts at location 0x04 (each interrupt is given 4B)
                 pc.write(4 + (4 * interrupt_num));
                 continue;
+            } else if (!wfi_flag) {
+                // read_registers();
+                // cout << "Sig: " << interrupt_sig.read() << " Flag: " << interrupt_flag.read() << " | ";
+                execute(instruction_memory[pc.read() / 4].read());
+                wait(); // wait for changes to take place
+                pc.write(pc.read() + 4);    // word size
             }
-            // read_registers();
-            execute(instruction_memory[pc.read() / 4].read());
-            wait(); // wait for changes to take place
-            pc.write(pc.read() + 4);    // word size
         }
     }
 
-    void combine_interrupts(void) {
-        sc_uint<32> irq_val = 0;
-        irq_val[0] = systick_irq.read();  // Bit 0 for systick
-        interrupt_sig.write(interrupt.read() | irq_val);
-    }
+    // void combine_interrupts(void) {
+    //     sc_uint<32> irq_val = interrupt.read();
+    //     // cout << "irq before: " << irq_val << endl;
+    //     // irq_val[0] |= systick_irq.read();  // Bit 0 for systick
+    //     interrupt_sig.write(irq_val);
+    //     // cout << "\nSig: " << interrupt_sig.read() << " Flag: " << interrupt_flag.read() << endl;
+    //     if (interrupt_sig.read() && !interrupt_pending) {
+    //         interrupt_pending = true;
+    //     }
+    // }
 
-    void turn_off_interrupt(void) {
-        systick_int_enable.write(!interrupt_flag.read()[0]);
+    // void turn_off_interrupt(void) {
+    //     systick_int_enable.write(!interrupt_flag.read()[0]);
+    // }
+
+    void count_cycles(void) {
+        if(wfi_flag == true) {
+            wfi_cycles.write((sc_uint<64>) wfi_cycles.read() + 1);
+        } else {
+            run_cycles.write((sc_uint<64>) run_cycles.read() + 1);
+        }
     }
 
     SC_CTOR(RV32I) {
+        // run_cycles.write(0);
+        // wfi_cycles.write(0);
+
         SC_THREAD(fetch_decode);
-        sensitive << clk.pos() << nreset;
+        sensitive << clk.pos() << nreset << interrupt;
 
-        SC_METHOD(combine_interrupts);
-        sensitive << interrupt << systick_irq;
+        SC_METHOD(count_cycles);
+        sensitive << clk.pos();
 
-        SC_METHOD(turn_off_interrupt);
-        sensitive << interrupt_flag;
+        // SC_METHOD(combine_interrupts);
+        // sensitive << interrupt << systick_irq;
+
+        // SC_METHOD(turn_off_interrupt);
+        // sensitive << interrupt_flag;
 
         gpio0 = new GPIO("gpio0");
         gpio0->clk(clk);

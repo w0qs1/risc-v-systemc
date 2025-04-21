@@ -1,3 +1,5 @@
+#ifndef CONFIG_H
+#define CONFIG_H
 // Size of instruction memory in number of words (4B)
 #define INSTR_MEM_SIZE  2048
 
@@ -14,3 +16,19 @@
 // SysTick Timer
 #define SYSTICK_BASE    GPIO1_END
 #define SYSTICK_END     SYSTICK_BASE + (3 * 4)
+
+#define SLEEP_PERIOD    128
+
+#define STOP_TIME       8192
+
+// Power configuration
+#define ACTIVE_POWER    1000E-06
+#define SLEEP_POWER     10E-06
+
+// Temperature Sensor Power
+#define GPIO10_POWER    20E-03
+
+// Dispaly Power
+#define GPIO11_POWER    40E-03
+
+#endif

@@ -18,36 +18,45 @@ SC_MODULE(SysTick) {
     sc_signal<sc_uint<32>> csr;  // [0]=enable
 
     sc_uint<32> csr_temp;
-    bool irq_temp;
+    sc_uint<32> tval_temp;
+    bool irq_flag;
 
-    bool irq_fired;
+    bool timer_val_written;
 
     void tick_process() {
+        sc_uint<32> tval;
         if (nreset.read() == false) {
             timer_val.write(0);
             irq.write(false);
-            irq_fired = false;
+            irq_flag = false;
         } else {
             csr_temp = csr.read();
-
+            
             if (csr_temp[0]) {  // Timer enabled
-                sc_uint<32> tval = timer_val.read();
-                tval++;
-                timer_val.write(tval);
+                if (timer_val_written == true) {
+                    tval = tval_temp + 1;
+                    timer_val.write(tval);
+                    timer_val_written = false;
+                } else {
+                    tval = timer_val.read();
+                    tval++;
+                    timer_val.write(tval);
+                }
+                // cout << "SysTick Timer value: " << dec << timer_val.read() << endl;
 
                 if (tval == match_val.read()) {
-                    if(!irq_fired && int_enable) {
-                        cout << "SysTick Match Interrupt at " << sc_time_stamp() << endl;
-                        irq_temp = true;
-                        irq_fired = true;
+                    if (int_enable) {
+                        // cout << "SysTick Match Interrupt at " << sc_time_stamp() << endl;
+                        irq_flag = true;
                     }
+                    timer_val.write(0);
                 }
-            } else {
-                irq_temp = false;
+            } else if(~int_enable) {
+                irq_flag = false;
             }
         }
 
-        irq.write(irq_temp);
+        irq.write(irq_flag);
     }    
 
     void bus_interface() {
@@ -61,8 +70,15 @@ SC_MODULE(SysTick) {
                         csr_temp = wdata.read(); //.range(2,0);
                         // cout << "SysTick CSR Write: " << csr_temp << endl;
                         break;
+                    case 1: // Timer value set
+                        tval_temp = wdata.read();
+                        // cout << "SysTick Timer write: " << tval_temp << endl;
+                        timer_val_written = true;
+                        break;
                     case 2: // MATCH
                         match_val.write(wdata.read());
+                        tval_temp = 0;
+                        timer_val_written = true;
                         break;
                     default: break; // TIMER is read-only
                 }
