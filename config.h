@@ -40,10 +40,16 @@
 // Dispaly Power
 #define GPIO11_POWER    80E-03
 
+// // Battery Capacity (Ah)
+// #define BAT_CAPACITY    2500E-03
+// // Battery Nominal Voltage (V)
+// #define BAT_VOLTAGE     3.7
+
 // Battery Capacity (Ah)
-#define BAT_CAPACITY    2500E-03
+#define BAT_CAPACITY    225E-03
 // Battery Nominal Voltage (V)
-#define BAT_VOLTAGE     3.7
+#define BAT_VOLTAGE     3
+
 #define BAT_CAP_WH      BAT_CAPACITY * BAT_VOLTAGE
 
 #endif
