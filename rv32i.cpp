@@ -499,7 +499,7 @@ SC_MODULE(RV32I) {
             pc.write(uepc.read() - 4);
         } else if (instr == 0x10500073) {   // wfi
             // Wait for interrupt
-            cout << "WFI\t\t| Waiting for Interrupt!" << endl;
+            cout << "WFI\t\t| Waiting for Interrupt at " << sc_time_stamp() << endl;
             wfi_flag = true;
         }
     }
